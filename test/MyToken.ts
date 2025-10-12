@@ -44,6 +44,7 @@ describe("My Token", () => {
       );
     });
   });
+
   describe("Transfer", () => {
     it("shout have 0.5 MT", async () => {
       const signer1 = signers[1];

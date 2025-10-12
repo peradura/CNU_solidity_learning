@@ -1,4 +1,4 @@
-// SPDX-License_Identifer: MIT
+// SPDX-License_Identifer: MINT
 pragma solidity ^0.8.28;
 
 contract MyToken {

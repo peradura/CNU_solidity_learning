@@ -18,6 +18,7 @@ interface IMyToken {
 
 contract TinyBank {
     event Staked(address, uint256);
+    event Withdraw(uint256 amount, address to);
 
     IMyToken public stakingToken;
     mapping(address => uint256) public staked;
@@ -27,11 +28,25 @@ contract TinyBank {
         stakingToken = _stakingToken;
     }
 
+    function distributeReward() internal {
+        // dummy function
+    }
+
     function stake(uint256 _amount) external {
         require(_amount >= 0, "Amount must be bigger than zero");
+        distributeReward();
         stakingToken.transferFrom(msg.sender, address(this), _amount);
         staked[msg.sender] += _amount;
         totalStaked += _amount;
         emit Staked(msg.sender, _amount);
+    }
+
+    function withdraw(uint256 _amount) external {
+        require(staked[msg.sender] >= _amount, "Insufficient staked token");
+        distributeReward();
+        stakingToken.transfer(_amount, msg.sender);
+        staked[msg.sender] -= _amount;
+        totalStaked -= _amount;
+        emit Withdraw(_amount, msg.sender);
     }
 }

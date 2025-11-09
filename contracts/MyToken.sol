@@ -1,12 +1,11 @@
 // SPDX-License_Identifer: MINT
 pragma solidity ^0.8.28;
+import "./ManagedAccess.sol";
 
-contract MyToken {
+contract MyToken is ManagedAccess {
     event Transfer(address indexed from, address to, uint256 value);
     event Approval(address indexed spender, uint256 amount);
 
-    address public owner;
-    address public manager;
     string public name;
     string public symbol;
     uint8 public decimals;
@@ -20,23 +19,11 @@ contract MyToken {
         string memory _symbol,
         uint8 _decimals,
         uint256 _amount
-    ) {
-        owner = msg.sender;
-        manager = msg.sender;
+    ) ManagedAccess(msg.sender, msg.sender) {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
         _mint(_amount * 10 ** uint256(decimals), msg.sender);
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "you are not an authorizer");
-        _;
-    }
-
-    modifier onlyManager() {
-        require(msg.sender == manager, "you are not a manager");
-        _;
     }
 
     function approve(address spender, uint256 amount) external {

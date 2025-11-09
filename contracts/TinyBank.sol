@@ -14,6 +14,8 @@ interface IMyToken {
     function transfer(uint256 amount, address to) external;
 
     function transferFrom(address from, address to, uint256 amount) external;
+
+    function mint(uint256 amount, address owner) external;
 }
 
 contract TinyBank {
@@ -21,6 +23,11 @@ contract TinyBank {
     event Withdraw(uint256 amount, address to);
 
     IMyToken public stakingToken;
+
+    mapping(address => uint256) public lastClainedBlock;
+    address[] public stakedUsers;
+    uint256 rewardPerblock = 1 * 10 ** 18;
+
     mapping(address => uint256) public staked;
     uint256 public totalStaked;
 
@@ -29,7 +36,13 @@ contract TinyBank {
     }
 
     function distributeReward() internal {
-        // dummy function
+        for (uint i = 0; i < stakedUsers.length; i++) {
+            uint256 blocks = block.number - lastClainedBlock[stakedUsers[i]];
+            uint256 reward = (block * rewardPerBlock * staked[stakedUsers[i]]) /
+                totalStaked;
+            IMyToken.mint(reward, stakedUsers[i]);
+            lastClainedBlock[stakedUsers[i]] = block.number;
+        }
     }
 
     function stake(uint256 _amount) external {
@@ -38,6 +51,7 @@ contract TinyBank {
         stakingToken.transferFrom(msg.sender, address(this), _amount);
         staked[msg.sender] += _amount;
         totalStaked += _amount;
+        stakedUsers.push(msg.sender);
         emit Staked(msg.sender, _amount);
     }
 
@@ -47,6 +61,17 @@ contract TinyBank {
         stakingToken.transfer(_amount, msg.sender);
         staked[msg.sender] -= _amount;
         totalStaked -= _amount;
+        if (staked[msg.sender] == 0) {
+            uint256 index;
+            for (uint i = 0; i < stakedUsers.length; i++) {
+                if (stakedUsers[i] == msg.sender) {
+                    index = i;
+                    break;
+                }
+            }
+            stakedUsers[index] = stakedUsers[stakedUsers.length - 1];
+            stakedUsers.pop();
+        }
         emit Withdraw(_amount, msg.sender);
     }
 }

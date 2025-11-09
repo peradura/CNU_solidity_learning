@@ -16,7 +16,7 @@ abstract contract ManagedAccess {
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "you are not a manager");
+        require(msg.sender == manager, "you are not authorized");
         _;
     }
 }

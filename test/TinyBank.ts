@@ -63,16 +63,23 @@ describe("TinyBank", () => {
       await myTokenC.approve(await tinyBankC.getAddress(), stakingAmount);
       await tinyBankC.stake(stakingAmount);
 
-      const BLOCkS = 5n;
+      const BLOCKS = 5n;
       const transferAmount = hre.ethers.parseUnits("1", DECIMALS);
-      for (var i = 0; i < BLOCkS; i++) {
+      for (var i = 0; i < BLOCKS; i++) {
         await myTokenC.transfer(transferAmount, signer0.address);
       }
 
       await tinyBankC.withdraw(stakingAmount);
       expect(await myTokenC.balanceOf(signer0.address)).equal(
-        hre.ethers.parseUnits((BLOCkS * MINTING_AMOUNT + 1n).toString())
+        hre.ethers.parseUnits((BLOCKS * MINTING_AMOUNT + 1n).toString())
       );
+    });
+    it("should revert when changing rewardPerBlock by hacker", async () => {
+      const hacker = signers[3];
+      const rewardToChange = hre.ethers.parseUnits("10000", DECIMALS);
+      await expect(
+        tinyBankC.connect(hacker).setRewardPerBlock(rewardToChange)
+      ).to.be.revertedWith("you are not authorized");
     });
   });
 });

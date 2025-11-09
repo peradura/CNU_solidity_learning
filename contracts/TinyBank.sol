@@ -43,7 +43,8 @@ contract TinyBank {
         }
 
         lastClainedBlock[to] = block.number;
-        _; // caller's code
+        _;
+        // caller's code
     }
 
     function stake(uint256 _amount) external updateReward(msg.sender) {

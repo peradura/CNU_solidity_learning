@@ -8,6 +8,9 @@ describe("TinyBank", () => {
   let signers: HardhatEthersSigner[];
   let myTokenC: MyToken;
   let tinyBankC: TinyBank;
+  let owner: HardhatEthersSigner;
+  let managers: HardhatEthersSigner[];
+
   beforeEach(async () => {
     signers = await hre.ethers.getSigners();
     myTokenC = await hre.ethers.deployContract("MyToken", [
@@ -16,10 +19,18 @@ describe("TinyBank", () => {
       DECIMALS,
       MINTING_AMOUNT,
     ]);
+
+    owner = signers[0];
+    managers = signers.slice(1, 6);
+    const managerAddresses = managers.map((m) => m.address);
+
     tinyBankC = await hre.ethers.deployContract("TinyBank", [
       await myTokenC.getAddress(),
+      owner.address,
+      managerAddresses,
     ]);
-    await myTokenC.setManager(tinyBankC.getAddress());
+
+    await myTokenC.setManager(await tinyBankC.getAddress());
   });
 
   describe("Initialized state check", () => {
@@ -40,7 +51,7 @@ describe("TinyBank", () => {
       await tinyBankC.stake(stakingAmount);
       expect(await tinyBankC.staked(signer0.address)).equal(stakingAmount);
       expect(await tinyBankC.totalStaked()).equal(stakingAmount);
-      expect(await myTokenC.balanceOf(tinyBankC)).equal(
+      expect(await myTokenC.balanceOf(await tinyBankC.getAddress())).equal(
         await tinyBankC.totalStaked()
       );
     });
@@ -70,19 +81,46 @@ describe("TinyBank", () => {
       }
 
       await tinyBankC.withdraw(stakingAmount);
+
       expect(await myTokenC.balanceOf(signer0.address)).equal(
-        hre.ethers.parseUnits(
-          (MINTING_AMOUNT + BLOCKS + 1n).toString(),
-          DECIMALS
-        )
+        hre.ethers.parseUnits((MINTING_AMOUNT + 6n).toString(), DECIMALS)
       );
     });
-    it("should revert when changing rewardPerBlock by hacker", async () => {
-      const hacker = signers[3];
-      const rewardToChange = hre.ethers.parseUnits("10000", DECIMALS);
+
+    it("should revert when non-manager tries to confirm", async () => {
+      const hacker = signers[10];
+      await expect(tinyBankC.connect(hacker).comfirm()).to.be.revertedWith(
+        "you are not one of the managers"
+      );
+    });
+
+    it("should revert when setting reward before all managers confirm", async () => {
+      const rewardToChange = hre.ethers.parseUnits("100", DECIMALS);
+
+      await tinyBankC.connect(managers[0]).comfirm();
+      await tinyBankC.connect(managers[1]).comfirm();
+      await tinyBankC.connect(managers[2]).comfirm();
+
       await expect(
-        tinyBankC.connect(hacker).setRewardPerBlock(rewardToChange)
-      ).to.be.revertedWith("you are not authorized");
+        tinyBankC.connect(owner).setRewardPerBlock(rewardToChange)
+      ).to.be.revertedWith("not all managers comfirmed yet");
+    });
+
+    it("should set reward after all managers confirm and reset confirmations", async () => {
+      const rewardToChange = hre.ethers.parseUnits("100", DECIMALS);
+
+      for (const manager of managers) {
+        await tinyBankC.connect(manager).comfirm();
+      }
+
+      await expect(tinyBankC.connect(owner).setRewardPerBlock(rewardToChange))
+        .to.not.be.reverted;
+
+      expect(await tinyBankC.rewardPerBlock()).to.equal(rewardToChange);
+
+      await expect(
+        tinyBankC.connect(owner).setRewardPerBlock(rewardToChange)
+      ).to.be.revertedWith("not all managers comfirmed yet");
     });
   });
 });

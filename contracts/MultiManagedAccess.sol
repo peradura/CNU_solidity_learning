@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-contract MultiManagedAccess {
+abstract contract MultiManagedAccess {
     uint constant MANAGER_NUMBERS = 5;
     address public owner;
     address[MANAGER_NUMBERS] public managers;
@@ -34,7 +34,7 @@ contract MultiManagedAccess {
         }
     }
 
-    modifier onlyAllconfirmed() {
+    modifier onlyAllConfirmed() {
         require(allConfirmed(), "not all managers comfirmed yet");
         reset();
         _;

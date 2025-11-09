@@ -47,7 +47,7 @@ describe("My Token", () => {
       const mintingAgainAmount = hre.ethers.parseUnits("10000", DECIMALS);
       await expect(
         myTokenC.connect(hacker).mint(mintingAgainAmount, hacker.address)
-      ).to.be.revertedWith("you are not an authorizer");
+      ).to.be.revertedWith("you are not authorized");
     });
   });
 

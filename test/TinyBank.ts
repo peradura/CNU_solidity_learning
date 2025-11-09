@@ -71,7 +71,10 @@ describe("TinyBank", () => {
 
       await tinyBankC.withdraw(stakingAmount);
       expect(await myTokenC.balanceOf(signer0.address)).equal(
-        hre.ethers.parseUnits((BLOCKS * MINTING_AMOUNT + 1n).toString())
+        hre.ethers.parseUnits(
+          (MINTING_AMOUNT + BLOCKS + 1n).toString(),
+          DECIMALS
+        )
       );
     });
     it("should revert when changing rewardPerBlock by hacker", async () => {

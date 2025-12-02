@@ -1,27 +1,7 @@
-// staking
-// deposit(MyToken) / withdraw(MyToken)
-
-// MyToken : token balance management
-// - the balance of TinyBank address
-// TinyBank : deposit / withdraw valut
-// - users token management
-// - user --> deposit --> TinyBank --> transfer(user --> TinyBank)
-
-// Reward
-// - reward token : MyToken
-// - reward resources : 1MT/block miniting
-// - reward strategy : staked[user]/totalStaked distribution
-
-// - signer0 block 0 staking
-// - signer1 block 5 staking
-// - 0-- 1-- 2-- 3-- 4-- 5--
-//   |                   |
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import "./ManagedAccess.sol";
-import "./MultiManagedAccess.sol";
 
 interface IMyToken {
     function transfer(uint256 amount, address to) external;
@@ -31,23 +11,26 @@ interface IMyToken {
     function mint(uint256 amount, address owner) external;
 }
 
-contract TinyBank is MultiManagedAccess {
+contract TinyBank is ManagedAccess {
     event Staked(address from, uint256 amount);
     event Withdraw(uint256 amount, address to);
+
     IMyToken public stakingToken;
 
     mapping(address => uint256) public lastClaimedBlock;
 
     uint256 defaultRewardPerBlock = 1 * 10 ** 18;
-    uint256 public rewardPerBlock;
+    uint256 rewardPerBlock = 1 * 10 ** 18;
+
     mapping(address => uint256) public staked;
     uint256 public totalStaked;
 
     constructor(
-        IMyToken _stakingToken,
-        address _owner,
-        address[] memory _managers
-    ) MultiManagedAccess(_owner, _managers) {
+        IMyToken _stakingToken
+    )
+        // address[5] memory _managers
+        ManagedAccess(msg.sender, msg.sender)
+    {
         stakingToken = _stakingToken;
         rewardPerBlock = defaultRewardPerBlock;
     }
@@ -57,21 +40,18 @@ contract TinyBank is MultiManagedAccess {
             uint256 blocks = block.number - lastClaimedBlock[to];
             uint256 reward = (blocks * rewardPerBlock * staked[to]) /
                 totalStaked;
-            if (reward > 0) {
-                stakingToken.mint(reward, to);
-            }
+            stakingToken.mint(reward, to);
         }
-
         lastClaimedBlock[to] = block.number;
-        _;
+        _; // caller's code
     }
 
-    function setRewardPerBlock(uint256 _amount) external onlyAllConfirmed {
+    function setRewardPerBlock(uint256 _amount) external onlyManager {
         rewardPerBlock = _amount;
     }
 
     function stake(uint256 _amount) external updateReward(msg.sender) {
-        require(_amount > 0, "Amount must be bigger than zero");
+        require(_amount >= 0, "cannoot stake 0 amount");
         stakingToken.transferFrom(msg.sender, address(this), _amount);
         staked[msg.sender] += _amount;
         totalStaked += _amount;
@@ -79,10 +59,19 @@ contract TinyBank is MultiManagedAccess {
     }
 
     function withdraw(uint256 _amount) external updateReward(msg.sender) {
-        require(staked[msg.sender] >= _amount, "Insufficient staked token");
+        require(staked[msg.sender] >= _amount, "insufficient staked token");
         stakingToken.transfer(_amount, msg.sender);
         staked[msg.sender] -= _amount;
         totalStaked -= _amount;
         emit Withdraw(_amount, msg.sender);
+    }
+
+    function currentReward(address to) external view returns (uint256) {
+        if (staked[to] > 0) {
+            uint256 blocks = block.number - lastClaimedBlock[to];
+            return (blocks * rewardPerBlock * staked[to]) / totalStaked;
+        } else {
+            return 0;
+        }
     }
 }

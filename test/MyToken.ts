@@ -4,7 +4,7 @@ import { MyToken } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { DECIMALS, MINTING_AMOUNT } from "./constant";
 
-describe("My Token", () => {
+describe("My token", () => {
   let myTokenC: MyToken;
   let signers: HardhatEthersSigner[];
   beforeEach("should deploy", async () => {
@@ -16,26 +16,27 @@ describe("My Token", () => {
       MINTING_AMOUNT,
     ]);
   });
-
   describe("Basic state value check", () => {
-    it("should return name", async () => {
-      expect(await myTokenC.name()).to.equal("MyToken");
+    it("should return", async () => {
+      expect(await myTokenC.name()).equal("MyToken");
     });
-    it("should return symbol", async () => {
-      expect(await myTokenC.symbol()).to.equal("MT");
+    it("should return", async () => {
+      expect(await myTokenC.symbol()).equal("MT");
     });
-    it("should return decimals", async () => {
-      expect(await myTokenC.decimals()).to.equal(DECIMALS);
+    it("should return", async () => {
+      expect(await myTokenC.decimals()).equal(DECIMALS);
     });
-    it("should return 0 totalSupply", async () => {
+    it("should return 100 totalSupply", async () => {
       expect(await myTokenC.totalSupply()).equal(
         MINTING_AMOUNT * 10n ** DECIMALS
       );
     });
   });
 
+  // 1MT = 1*10^18
   describe("Mint", () => {
-    it("should return 0 balance for signer 0", async () => {
+    it("should return 1MT balance for signer 0", async () => {
+      // const signers = await hre.ethers.getSigners();
       const signer0 = signers[0];
       expect(await myTokenC.balanceOf(signer0)).equal(
         MINTING_AMOUNT * 10n ** DECIMALS
@@ -47,33 +48,42 @@ describe("My Token", () => {
       const mintingAgainAmount = hre.ethers.parseUnits("10000", DECIMALS);
       await expect(
         myTokenC.connect(hacker).mint(mintingAgainAmount, hacker.address)
-      ).to.be.revertedWith("you are not authorized");
+      ).to.be.revertedWith("You are not authorized to manage this contract");
     });
   });
 
   describe("Transfer", () => {
-    it("shout have 0.5 MT", async () => {
+    it("should have 0.5MT", async () => {
+      const signer0 = signers[0];
       const signer1 = signers[1];
-      const tx = await myTokenC.transfer(
-        hre.ethers.parseUnits("0.5", DECIMALS),
-        signer1.address
-      );
-      const receipt = await tx.wait();
+
+      await expect(
+        myTokenC.transfer(
+          hre.ethers.parseUnits("0.5", DECIMALS),
+          signer1.address
+        )
+      )
+        .to.emit(myTokenC, "Transfer")
+        .withArgs(
+          signer0.address,
+          signer1.address,
+          hre.ethers.parseUnits("0.5", DECIMALS)
+        );
+
       expect(await myTokenC.balanceOf(signer1.address)).equal(
         hre.ethers.parseUnits("0.5", DECIMALS)
       );
     });
-    it("shoutld be reverted with insufficient balance error", async () => {
+    it("should be reverted with insufficient balance error ", async () => {
       const signer1 = signers[1];
-      expect(
+      await expect(
         myTokenC.transfer(
           hre.ethers.parseUnits((MINTING_AMOUNT + 1n).toString(), DECIMALS),
           signer1.address
         )
-      ).to.be.revertedWith("Insufficient Balance");
+      ).to.be.revertedWith("insufficient balance");
     });
   });
-
   describe("TransferFrom", () => {
     it("should emit Approval event", async () => {
       const signer1 = signers[1];
@@ -94,21 +104,29 @@ describe("My Token", () => {
             signer1.address,
             hre.ethers.parseUnits("1", DECIMALS)
           )
-      ).to.be.revertedWith("Insufficient allowance");
+      ).to.be.rejectedWith("insufficient allowance");
     });
-    it("should allow signer1 to transfer tokens from signer0", async () => {
+
+    it("should successfully transfer tokens from owner after approval", async () => {
       const signer0 = signers[0];
       const signer1 = signers[1];
       const amountToTransfer = hre.ethers.parseUnits("10", DECIMALS);
+      const initialOwnerBalance = await myTokenC.balanceOf(signer0.address);
 
-      await myTokenC.approve(signer1.address, amountToTransfer);
+      await myTokenC
+        .connect(signer0)
+        .approve(signer1.address, amountToTransfer);
       await myTokenC
         .connect(signer1)
         .transferFrom(signer0.address, signer1.address, amountToTransfer);
 
-      expect(await myTokenC.balanceOf(signer1.address)).to.equal(
-        amountToTransfer
+      const ownerBalance = await myTokenC.balanceOf(signer0.address);
+      const spenderBalance = await myTokenC.balanceOf(signer1.address);
+
+      await expect(ownerBalance).to.equal(
+        initialOwnerBalance - amountToTransfer
       );
+      await expect(spenderBalance).to.equal(amountToTransfer);
     });
   });
 });

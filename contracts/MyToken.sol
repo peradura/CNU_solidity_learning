@@ -1,9 +1,10 @@
-// SPDX-License_Identifer: MINT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
+
 import "./ManagedAccess.sol";
 
 contract MyToken is ManagedAccess {
-    event Transfer(address indexed from, address to, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed spender, uint256 amount);
 
     string public name;
@@ -23,7 +24,7 @@ contract MyToken is ManagedAccess {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
-        _mint(_amount * 10 ** uint256(decimals), msg.sender);
+        _mint(_amount * 10 ** uint256(decimals), msg.sender); // 1 MT에서 추가발행불가
     }
 
     function approve(address spender, uint256 amount) external {
@@ -33,7 +34,7 @@ contract MyToken is ManagedAccess {
 
     function transferFrom(address from, address to, uint256 amount) external {
         address spender = msg.sender;
-        require(allowance[from][spender] >= amount, "Insufficient allowance");
+        require(allowance[from][spender] >= amount, "insufficient allowance");
         allowance[from][spender] -= amount;
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
@@ -49,17 +50,24 @@ contract MyToken is ManagedAccess {
     }
 
     function _mint(uint256 amount, address to) internal {
+        // totalSupply = totalSupply + amount;
+        // balanceOf[owner] = balanceOf[owner] + amount;
         totalSupply += amount;
         balanceOf[to] += amount;
 
-        emit Transfer(address(0), to, amount);
+        emit Transfer(address(0), owner, amount);
     }
 
     function transfer(uint256 amount, address to) external {
-        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+        require(balanceOf[msg.sender] >= amount, "insufficient balance");
+
         balanceOf[msg.sender] -= amount;
         balanceOf[to] += amount;
 
         emit Transfer(msg.sender, to, amount);
+    }
+
+    function faucet(uint256 amount) external {
+        _mint(amount, msg.sender);
     }
 }
